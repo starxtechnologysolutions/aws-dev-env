@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (do NOT commit secrets)
+aws_region   = "ap-southeast-2"
+project      = "starter"
+env          = "dev"
+
+db_username  = "appuser"
+db_password  = "REPLACE_WITH_STRONG_PASSWORD"
+db_name      = "appdb"
+
+rabbit_user  = "app"
+rabbit_pass  = "REPLACE_WITH_STRONG_PASSWORD"
