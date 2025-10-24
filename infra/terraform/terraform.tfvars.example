@@ -1,4 +1,4 @@
-# Copy to terraform.tfvars (do NOT commit secrets)
+﻿# Copy to terraform.tfvars (do NOT commit secrets)
 region       = "ap-southeast-2"
 project      = "starter"
 env          = "dev"
@@ -7,3 +7,6 @@ rds_username = "appuser"
 rds_db_name  = "appdb"
 
 rabbit_user  = "app"
+
+# Allow SSH only from a trusted IP (optional)
+ec2_allowed_ssh_cidrs = ["203.0.113.4/32"]

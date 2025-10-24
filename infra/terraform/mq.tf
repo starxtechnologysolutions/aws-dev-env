@@ -1,7 +1,8 @@
 resource "aws_mq_broker" "rabbit" {
   broker_name        = "${var.project}-${var.env}-rabbit"
   engine_type        = "RabbitMQ"
-  engine_version     = "3.13.2"
+  engine_version     = "3.13"
+  auto_minor_version_upgrade = true
   host_instance_type = "mq.t3.micro"
   deployment_mode    = "SINGLE_INSTANCE"
   publicly_accessible = false
@@ -13,7 +14,8 @@ resource "aws_mq_broker" "rabbit" {
 
   logs { general = true }
 
-  subnet_ids = values(aws_subnet.private)[*].id
+  # SINGLE_INSTANCE requires exactly one subnet (one AZ)
+  subnet_ids = [aws_subnet.private[var.private_subnet_cidrs[0]].id]
   security_groups = [aws_security_group.mq_sg.id]
 
   tags = { Env = var.env, Project = "Starter", Owner = "Roy" }

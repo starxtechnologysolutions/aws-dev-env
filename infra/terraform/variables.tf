@@ -1,4 +1,4 @@
-variable "project" {
+﻿variable "project" {
 	type = string
 }
 
@@ -88,3 +88,9 @@ variable "s3_bucket_suffix" {
 	default = "app-bucket"
 }
 
+# Network access to EC2
+variable "ec2_allowed_ssh_cidrs" {
+	type    = list(string)
+	default = []
+	description = "CIDR blocks allowed to SSH into the app EC2 security group. Leave empty to rely solely on SSM."
+}

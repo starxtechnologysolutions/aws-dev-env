@@ -1,4 +1,4 @@
-output "vpc_id"             { value = aws_vpc.main.id }
+﻿output "vpc_id"             { value = aws_vpc.main.id }
 output "public_subnet_ids"  { value = [aws_subnet.public.id] }
 output "private_subnet_ids" { value = values(aws_subnet.private)[*].id }
 
@@ -18,3 +18,5 @@ output "redis_port"         { value = aws_elasticache_cluster.redis.cache_nodes[
 output "mq_endpoint"        { value = aws_mq_broker.rabbit.instances[0].endpoints[0] }
 
 output "s3_bucket_name"     { value = aws_s3_bucket.app_bucket.bucket }
+output "ec2_instance_security_group_id" { value = aws_security_group.ec2_sg.id }
+

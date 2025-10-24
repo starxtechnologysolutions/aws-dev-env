@@ -1,12 +1,25 @@
-resource "aws_security_group" "ec2_sg" {
+﻿resource "aws_security_group" "ec2_sg" {
   name   = "${var.project}-${var.env}-ec2-sg"
   vpc_id = aws_vpc.main.id
+
+  dynamic "ingress" {
+    for_each = toset(var.ec2_allowed_ssh_cidrs)
+    content {
+      description = "SSH access from ${ingress.value}"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = [ingress.value]
+    }
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
   tags = { Env = var.env, Project = "Starter", Owner = "Roy" }
 }
 
@@ -70,3 +83,4 @@ resource "aws_security_group" "mq_sg" {
   }
   tags = { Env = var.env, Project = "Starter", Owner = "Roy" }
 }
+
