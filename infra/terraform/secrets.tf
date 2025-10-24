@@ -1,11 +1,14 @@
-resource "aws_secretsmanager_secret" "rds_app" { name = "dev/rds/app" }
-resource "aws_secretsmanager_secret_version" "rds_app_value" {
-  secret_id     = aws_secretsmanager_secret.rds_app.id
-  secret_string = jsonencode({ username = var.db_username, password = var.db_password })
-}
-
 resource "aws_secretsmanager_secret" "rabbit_app" { name = "dev/rabbitmq/app" }
 resource "aws_secretsmanager_secret_version" "rabbit_app_value" {
   secret_id     = aws_secretsmanager_secret.rabbit_app.id
-  secret_string = jsonencode({ username = var.rabbit_user, password = var.rabbit_pass })
+  secret_string = jsonencode({ username = var.rabbit_user, password = random_password.rabbit.result })
+}
+
+resource "random_password" "rabbit" {
+  length           = 24
+  min_upper        = 2
+  min_lower        = 2
+  min_numeric      = 2
+  min_special      = 2
+  special          = true
 }

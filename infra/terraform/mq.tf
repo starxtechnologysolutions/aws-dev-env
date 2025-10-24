@@ -8,15 +8,14 @@ resource "aws_mq_broker" "rabbit" {
 
   user {
     username = var.rabbit_user
-    password = var.rabbit_pass
+    password = random_password.rabbit.result
   }
 
   logs { general = true }
 
-  subnet_ids = [for s in aws_subnet.private : s.id]
+  subnet_ids = values(aws_subnet.private)[*].id
   security_groups = [aws_security_group.mq_sg.id]
 
   tags = { Env = var.env, Project = "Starter", Owner = "Roy" }
 }
 
-output "rabbit_amqp_endpoint" { value = aws_mq_broker.rabbit.instances[0].endpoints[0] }

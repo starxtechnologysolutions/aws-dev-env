@@ -1,10 +1,11 @@
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.time.Instant;
 
 import redis.clients.jedis.JedisPooled;
-import com.rabbitmq.client.*;
+import com.rabbitmq.client.BuiltinExchangeType;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.ConnectionFactory;
 
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -16,7 +17,13 @@ import software.amazon.awssdk.services.s3.model.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class App {
-  static class Secret { public String username; public String password; }
+  static class Secret {
+    public String username;
+    public String password;
+    public String host;     // present in RDS-managed secrets
+    public Integer port;    // present in RDS-managed secrets
+    public String dbname;   // present in RDS-managed secrets
+  }
 
   static Secret getSecret(String name, String region) {
     try {
@@ -35,12 +42,13 @@ public class App {
     String region = getenv("AWS_REGION", "ap-southeast-2");
 
     // ---- Postgres
-    Secret db = getSecret("dev/rds/app", region);
-    String dbUser = db != null ? db.username : getenv("POSTGRES_USER", "appuser");
-    String dbPass = db != null ? db.password : getenv("POSTGRES_PASSWORD", "CHANGEME");
-    String dbHost = getenv("POSTGRES_HOST", "127.0.0.1");
-    String dbPort = getenv("POSTGRES_PORT", "5432");
-    String dbName = getenv("POSTGRES_DB", "appdb");
+    String rdsSecretId = getenv("RDS_SECRET_ID", "dev/rds/app");
+  Secret db = getSecret(rdsSecretId, region);
+  String dbUser = db != null && db.username != null ? db.username : getenv("POSTGRES_USER", "appuser");
+  String dbPass = db != null && db.password != null ? db.password : getenv("POSTGRES_PASSWORD", "CHANGEME");
+  String dbHost = (db != null && db.host != null) ? db.host : getenv("POSTGRES_HOST", "127.0.0.1");
+  String dbPort = (db != null && db.port != null) ? Integer.toString(db.port) : getenv("POSTGRES_PORT", "5432");
+  String dbName = (db != null && db.dbname != null) ? db.dbname : getenv("POSTGRES_DB", "appdb");
 
     String jdbcUrl = "jdbc:postgresql://" + dbHost + ":" + dbPort + "/" + dbName + "?sslmode=require";
     try (Connection con = DriverManager.getConnection(jdbcUrl, dbUser, dbPass); Statement st = con.createStatement()) {
@@ -59,7 +67,8 @@ public class App {
     }
 
     // ---- RabbitMQ (AMQPS)
-    Secret mq = getSecret("dev/rabbitmq/app", region);
+  String mqSecretId = getenv("RABBITMQ_SECRET_ID", "dev/rabbitmq/app");
+  Secret mq = getSecret(mqSecretId, region);
     String mqUser = mq != null ? mq.username : getenv("RABBITMQ_USER", "app");
     String mqPass = mq != null ? mq.password : getenv("RABBITMQ_PASS", "CHANGEME");
     String mqHost = getenv("RABBITMQ_HOST", "127.0.0.1");

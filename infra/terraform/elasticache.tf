@@ -1,6 +1,6 @@
 resource "aws_elasticache_subnet_group" "redis" {
   name       = "${var.project}-${var.env}-redis-subnets"
-  subnet_ids = [for s in aws_subnet.private : s.id]
+  subnet_ids = values(aws_subnet.private)[*].id
 }
 
 resource "aws_elasticache_cluster" "redis" {
@@ -14,5 +14,3 @@ resource "aws_elasticache_cluster" "redis" {
   tags = { Env = var.env, Project = "Starter", Owner = "Roy" }
 }
 
-output "redis_host" { value = aws_elasticache_cluster.redis.cache_nodes[0].address }
-output "redis_port" { value = aws_elasticache_cluster.redis.cache_nodes[0].port }

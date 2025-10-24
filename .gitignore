@@ -1,6 +1,9 @@
 .terraform/
 *.tfstate*
 *.tfplan
+terraform.tfvars
+*.auto.tfvars
+crash.log
 **/target/
 **/.classpath
 **/.project
