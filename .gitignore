@@ -34,4 +34,7 @@ infra/terraform/.terraform.lock.hcl
 *.log
 logs/
 
+# Secrets
+umigoCrmBackend/src/main/resources/config/serviceAccountKey.json
+umigoCrmBackend/src/main/resources/config/serviceAccountKey.json
 
