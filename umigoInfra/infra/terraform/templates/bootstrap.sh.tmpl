@@ -94,9 +94,27 @@ PROJECT_DIR="$6"
 export SPRING_DATASOURCE_URL SPRING_DATASOURCE_USERNAME SPRING_DATASOURCE_PASSWORD SPRING_REDIS_HOST SPRING_REDIS_PORT
 cd "$PROJECT_DIR"
 if [ -x "./mvnw" ]; then
-  ./mvnw -B -DskipTests flyway:migrate
+  ./mvnw -B -DskipTests \
+    "-Dflyway.url=$SPRING_DATASOURCE_URL" \
+    "-Dflyway.user=$SPRING_DATASOURCE_USERNAME" \
+    "-Dflyway.password=$SPRING_DATASOURCE_PASSWORD" \
+    "-Dspring.datasource.url=$SPRING_DATASOURCE_URL" \
+    "-Dspring.datasource.username=$SPRING_DATASOURCE_USERNAME" \
+    "-Dspring.datasource.password=$SPRING_DATASOURCE_PASSWORD" \
+    "-Dspring.data.redis.host=$SPRING_REDIS_HOST" \
+    "-Dspring.data.redis.port=$SPRING_REDIS_PORT" \
+    flyway:migrate
 elif command -v mvn >/dev/null 2>&1; then
-  mvn -B -DskipTests flyway:migrate
+  mvn -B -DskipTests \
+    "-Dflyway.url=$SPRING_DATASOURCE_URL" \
+    "-Dflyway.user=$SPRING_DATASOURCE_USERNAME" \
+    "-Dflyway.password=$SPRING_DATASOURCE_PASSWORD" \
+    "-Dspring.datasource.url=$SPRING_DATASOURCE_URL" \
+    "-Dspring.datasource.username=$SPRING_DATASOURCE_USERNAME" \
+    "-Dspring.datasource.password=$SPRING_DATASOURCE_PASSWORD" \
+    "-Dspring.data.redis.host=$SPRING_REDIS_HOST" \
+    "-Dspring.data.redis.port=$SPRING_REDIS_PORT" \
+    flyway:migrate
 else
   echo "[$(date -Is)] WARNING: Maven executable not available; skipping flyway migrations" >&2
 fi
