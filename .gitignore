@@ -1,13 +1,37 @@
-.terraform/
-*.tfstate*
-*.tfplan
-terraform.tfvars
-*.auto.tfvars
-crash.log
+# OS / editor artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Java / Maven
 **/target/
-**/.classpath
-**/.project
-**/.settings/
-__pycache__/
-.env
+**/.mvn/wrapper/maven-wrapper.jar
+
+# Node / frontend
+**/node_modules/
+**/dist/
+**/build/*
+**/.pnpm-store/
+**/pnpm-debug.log
+**/npm-debug.log
+**/.tsbuildinfo
+
+# Environment overrides
+*.env
+*.env.local
+*.env.*
+!*/.env.example
+
+# Terraform / tooling
+infra/terraform/.terraform/
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.*
+infra/terraform/.terraform.lock.hcl
+
+# Logs / outputs
 *.log
+logs/
+
+

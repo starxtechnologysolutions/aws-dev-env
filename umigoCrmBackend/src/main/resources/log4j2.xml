@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration status="INFO">
+    <Properties>
+        <!-- 日志路径和日志文件 -->
+        <Property name="LOG_PATH">./</Property>
+        <Property name="LOG_FILE">umigo-crm-backend</Property>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss,SSS} | %level | %thread | %logger{1.} -> %msg%n</Property>
+    </Properties>
+    <Appenders>
+        <!-- 按天切割 -->
+        <RollingRandomAccessFile name="ROLLING_FILE" fileName="${LOG_PATH}/${LOG_FILE}.log" filePattern="${LOG_PATH}/${LOG_FILE}-%d{yyyy-MM-dd}-%i.log" immediateFlush="false">
+            <PatternLayout>
+                <Pattern>${LOG_PATTERN}</Pattern>
+            </PatternLayout>
+            <Policies>
+                <!-- 一个文件最大存储量 -->
+                <SizeBasedTriggeringPolicy size="100MB" />
+            </Policies>
+            <!-- 每天最多保留1个文件 -->
+            <DefaultRolloverStrategy max="1">
+                <Delete basePath="${LOG_PATH}" maxDepth="1">
+                    <!-- 待删除的日志文件 -->
+                    <IfFileName glob="${LOG_FILE}-*.log" />
+                    <!-- IfFileName中定义的文件存留的时长，1天 -->
+                    <IfLastModified age="1d" />
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingRandomAccessFile>
+        <Console name="CONSOLE" target="SYSTEM_OUT" follow="true">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+    </Appenders>
+    <loggers>
+        <AsyncLogger name="com.umigo.umigoCrmBackend" level="INFO" additivity="false" includeLocation="false">
+            <AppenderRef ref="ROLLING_FILE" />
+            <AppenderRef ref="CONSOLE"/>
+        </AsyncLogger>
+        <AsyncRoot level="INFO" includeLocation="false">
+            <AppenderRef ref="ROLLING_FILE" />
+            <AppenderRef ref="CONSOLE"/>
+        </AsyncRoot>
+    </loggers>
+</configuration>

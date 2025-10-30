@@ -1,0 +1,10 @@
+.terraform/
+*.tfstate*
+*.tfplan
+**/target/
+**/.classpath
+**/.project
+**/.settings/
+__pycache__/
+.env
+*.log
