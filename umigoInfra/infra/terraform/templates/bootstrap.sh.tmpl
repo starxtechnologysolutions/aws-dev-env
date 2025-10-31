@@ -61,8 +61,8 @@ if [ ! -d "$REPO_DIR/.git" ]; then
   su - ec2-user -c "git clone $BACKEND_REPO $REPO_DIR" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git clone failed" | tee -a "$BOOTSTRAP_LOG"
 else
   su - ec2-user -c "git -C $REPO_DIR fetch --all" >> "$BOOTSTRAP_LOG" 2>&1 || true
-  su - ec2-user -c "git -C $REPO_DIR checkout main" >> "$BOOTSTRAP_LOG" 2>&1 || true
-  su - ec2-user -c "git -C $REPO_DIR pull --ff-only origin main" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git pull failed" | tee -a "$BOOTSTRAP_LOG"
+  su - ec2-user -c "git -C $REPO_DIR checkout master" >> "$BOOTSTRAP_LOG" 2>&1 || true
+  su - ec2-user -c "git -C $REPO_DIR pull --ff-only origin master" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git pull failed" | tee -a "$BOOTSTRAP_LOG"
 fi
 su - ec2-user -c "git -C $REPO_DIR remote set-url origin $BACKEND_REPO" >> "$BOOTSTRAP_LOG" 2>&1 || true
 
