@@ -108,6 +108,7 @@ if [ -x "./mvnw" ]; then
     "-Dflyway.url=$SPRING_DATASOURCE_URL" \
     "-Dflyway.user=$SPRING_DATASOURCE_USERNAME" \
     "-Dflyway.password=$SPRING_DATASOURCE_PASSWORD" \
+    "-Dflyway.baselineOnMigrate=true" \
     "-Dspring.datasource.url=$SPRING_DATASOURCE_URL" \
     "-Dspring.datasource.username=$SPRING_DATASOURCE_USERNAME" \
     "-Dspring.datasource.password=$SPRING_DATASOURCE_PASSWORD" \
@@ -119,6 +120,7 @@ elif command -v mvn >/dev/null 2>&1; then
     "-Dflyway.url=$SPRING_DATASOURCE_URL" \
     "-Dflyway.user=$SPRING_DATASOURCE_USERNAME" \
     "-Dflyway.password=$SPRING_DATASOURCE_PASSWORD" \
+    "-Dflyway.baselineOnMigrate=true" \
     "-Dspring.datasource.url=$SPRING_DATASOURCE_URL" \
     "-Dspring.datasource.username=$SPRING_DATASOURCE_USERNAME" \
     "-Dspring.datasource.password=$SPRING_DATASOURCE_PASSWORD" \
