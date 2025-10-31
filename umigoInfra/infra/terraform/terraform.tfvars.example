@@ -9,3 +9,8 @@ db_name      = "appdb"
 
 rabbit_user  = "app"
 rabbit_pass  = "REPLACE_WITH_STRONG_PASSWORD"
+# CI/CD pipeline configuration
+github_owner            = "your-github-org"
+github_repo             = "umigoCrmBackend"
+github_branch           = "master"
+codestar_connection_arn = "arn:aws:codestar-connections:REGION:ACCOUNT_ID:connection/ID"

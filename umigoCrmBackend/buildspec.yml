@@ -1,0 +1,53 @@
+version: 0.2
+
+env:
+  variables:
+    MAVEN_OPTS: -Dmaven.test.failure.ignore=false
+  shell: bash
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto21
+    commands:
+      - echo "Using Java version:"
+      - java -version
+      - echo "Restoring Maven dependencies"
+      - ./mvnw -B dependency:go-offline || echo "Dependency warmup failed"
+  pre_build:
+    commands:
+      - echo "Starting unit tests"
+      - ./mvnw -B test
+  build:
+    commands:
+      - echo "Packaging application"
+      - ./mvnw -B package -DskipTests
+  post_build:
+    commands:
+      - echo "Preparing deployment artifacts"
+      - chmod +x codedeploy/scripts/*.sh
+      - mkdir -p target/artifact
+      - JAR_PATH=$(ls target/*.jar | head -n 1)
+      - test -n "$JAR_PATH" || { echo "Jar not found" >&2; exit 1; }
+      - cp "$JAR_PATH" target/artifact/backend.jar
+      - cp appspec.yml target/artifact/
+      - cp -R codedeploy target/artifact/
+      - ls -R target/artifact
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: target/artifact
+  name: backend-build
+  discard-paths: no
+
+reports:
+  surefire:
+    files:
+      - '**/surefire-reports/*.xml'
+    base-directory: target
+    file-format: JUNITXML
+
+cache:
+  paths:
+    - ~/.m2/**/*

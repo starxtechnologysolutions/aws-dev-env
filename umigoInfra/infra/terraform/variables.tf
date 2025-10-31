@@ -52,3 +52,24 @@ variable "rabbit_pass" {
   type      = string
   sensitive = true
 }
+
+variable "github_owner" {
+  type        = string
+  description = "GitHub organization or user that hosts the backend repository."
+}
+
+variable "github_repo" {
+  type        = string
+  description = "Name of the GitHub repository that contains the backend source."
+}
+
+variable "github_branch" {
+  type        = string
+  default     = "master"
+  description = "Default branch used by the backend deployment pipeline."
+}
+
+variable "codestar_connection_arn" {
+  type        = string
+  description = "ARN of the pre-created CodeStar Connections GitHub connection."
+}

@@ -4,150 +4,84 @@ set -uxo pipefail
 BOOTSTRAP_LOG="/var/log/umigo-bootstrap.log"
 exec > >(tee -a "$BOOTSTRAP_LOG") 2>&1
 trap 'STATUS=$?; msg="[ $(date -Is)] ERROR running bootstrap at line $${LINENO} (exit $${STATUS})"; echo "$msg" | tee -a "$BOOTSTRAP_LOG" /var/log/cloud-init-output.log' ERR
+AWS_REGION="${aws_region}"
+ENVIRONMENT="${env}"
+DEPLOY_USER="ec2-user"
+APP_ROOT="/opt/umigo/backend"
+LOG_ROOT="/var/log/umigo/backend"
+SERVICE_FILE="/etc/systemd/system/umigo-backend.service"
+ENV_FILE="$APP_ROOT/.env"
+
+mkdir -p "$(dirname "$BOOTSTRAP_LOG")"
 
 echo "[$(date -Is)] Starting user-data bootstrap" | tee -a "$BOOTSTRAP_LOG"
 
 dnf -y update || echo "[$(date -Is)] WARNING: dnf update failed" | tee -a "$BOOTSTRAP_LOG"
-dnf -y install amazon-ssm-agent git docker java-21-amazon-corretto maven awscli python3 || echo "[$(date -Is)] WARNING: dnf install failed" | tee -a "$BOOTSTRAP_LOG"
+dnf -y install amazon-ssm-agent git docker java-21-amazon-corretto awscli python3 ruby || echo "[$(date -Is)] WARNING: dnf install failed" | tee -a "$BOOTSTRAP_LOG"
 systemctl enable amazon-ssm-agent && systemctl restart amazon-ssm-agent || echo "[$(date -Is)] WARNING: failed to enable SSM agent" | tee -a "$BOOTSTRAP_LOG"
-usermod -aG docker ec2-user || true
+usermod -aG docker "$DEPLOY_USER" || true
 
-REPO_DIR="/home/ec2-user/umigo"
-BACKEND_REPO="https://github.com/starxtechnologysolutions/aws-dev-env.git"
-# SHARED_GITHUB_PARAM="/shared/github/pat-readonly"
-# FALLBACK_GITHUB_PARAM="/${env}/github/pat"
-AWS_REGION="${aws_region}"
-RDS_SECRET_ID="${env}/rds/app"
-DATASOURCE_PARAM="/${env}/backend/SPRING_DATASOURCE_URL"
-REDIS_HOST_PARAM="/${env}/backend/SPRING_REDIS_HOST"
-REDIS_PORT_PARAM="/${env}/backend/SPRING_REDIS_PORT"
-
-# GITHUB_TOKEN=""
-# for PARAM_NAME in "$SHARED_GITHUB_PARAM" "$FALLBACK_GITHUB_PARAM"; do
-#   [ -z "$PARAM_NAME" ] && continue
-#   if aws ssm get-parameter --name "$PARAM_NAME" --with-decryption --query Parameter.Value --output text --region "$AWS_REGION" >/tmp/github_token 2>>"$BOOTSTRAP_LOG"; then
-#     GITHUB_TOKEN=$(cat /tmp/github_token)
-#     rm -f /tmp/github_token
-#     echo "[$(date -Is)] Retrieved GitHub token from $PARAM_NAME" | tee -a "$BOOTSTRAP_LOG"
-#     break
-  # else
-#     echo "[$(date -Is)] INFO: unable to read GitHub token parameter $PARAM_NAME" | tee -a "$BOOTSTRAP_LOG"
-  # fi
-# done
-#
-# if [ -n "$GITHUB_TOKEN" ]; then
-#   su - ec2-user -c "git config --global credential.helper store" || true
-#   cat <<TOKENEOF > /home/ec2-user/.git-credentials
-# https://$GITHUB_TOKEN:x-oauth-basic@github.com
-# TOKENEOF
-  # chown ec2-user:ec2-user /home/ec2-user/.git-credentials
-  # chmod 600 /home/ec2-user/.git-credentials
-#
-  # if [ ! -d "$REPO_DIR/.git" ]; then
-#     su - ec2-user -c "rm -rf $REPO_DIR"
-#     su - ec2-user -c "git clone $BACKEND_REPO $REPO_DIR" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git clone failed" | tee -a "$BOOTSTRAP_LOG"
-  # else
-#     su - ec2-user -c "git -C $REPO_DIR fetch --all" >> "$BOOTSTRAP_LOG" 2>&1 || true
-#     su - ec2-user -c "git -C $REPO_DIR checkout main" >> "$BOOTSTRAP_LOG" 2>&1 || true
-#     su - ec2-user -c "git -C $REPO_DIR pull --ff-only origin main" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git pull failed" | tee -a "$BOOTSTRAP_LOG"
-  # fi
-#   su - ec2-user -c "git -C $REPO_DIR remote set-url origin $BACKEND_REPO" >> "$BOOTSTRAP_LOG" 2>&1 || true
-# else
-  # echo "[$(date -Is)] INFO: skipping repo clone; missing GitHub access" | tee -a "$BOOTSTRAP_LOG"
-# fi
-
-if [ ! -d "$REPO_DIR/.git" ]; then
-  su - ec2-user -c "rm -rf $REPO_DIR"
-  su - ec2-user -c "git clone $BACKEND_REPO $REPO_DIR" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git clone failed" | tee -a "$BOOTSTRAP_LOG"
-else
-  su - ec2-user -c "git -C $REPO_DIR fetch --all" >> "$BOOTSTRAP_LOG" 2>&1 || true
-  su - ec2-user -c "git -C $REPO_DIR checkout master" >> "$BOOTSTRAP_LOG" 2>&1 || true
-  su - ec2-user -c "git -C $REPO_DIR pull --ff-only origin master" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git pull failed" | tee -a "$BOOTSTRAP_LOG"
-fi
-su - ec2-user -c "git -C $REPO_DIR remote set-url origin $BACKEND_REPO" >> "$BOOTSTRAP_LOG" 2>&1 || true
-
-BACKEND_PATH="$REPO_DIR/umigoCrmBackend"
-if [ -d "$BACKEND_PATH" ]; then
-  if [ -x "$BACKEND_PATH/mvnw" ]; then
-    su - ec2-user -c "cd $BACKEND_PATH && ./mvnw --version" >> "$BOOTSTRAP_LOG" 2>&1 || true
-    su - ec2-user -c "cd $BACKEND_PATH && ./mvnw dependency:go-offline -DskipTests" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: Maven warmup failed" | tee -a "$BOOTSTRAP_LOG"
-  else
-    su - ec2-user -c "cd $BACKEND_PATH && mvn --version" >> "$BOOTSTRAP_LOG" 2>&1 || true
-    su - ec2-user -c "cd $BACKEND_PATH && mvn dependency:go-offline -DskipTests" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: Maven warmup failed" | tee -a "$BOOTSTRAP_LOG"
+# Install or refresh the CodeDeploy agent so the instance participates in deployments
+if ! systemctl status codedeploy-agent >/dev/null 2>&1; then
+  echo "[$(date -Is)] Installing CodeDeploy agent" | tee -a "$BOOTSTRAP_LOG"
+  installer_url="https://aws-codedeploy-$${AWS_REGION}.s3.$${AWS_REGION}.amazonaws.com/latest/install"
+  curl -sSL "$installer_url" -o /tmp/codedeploy-install || echo "[$(date -Is)] WARNING: failed to download CodeDeploy installer" | tee -a "$BOOTSTRAP_LOG"
+  if [ -f /tmp/codedeploy-install ]; then
+    chmod +x /tmp/codedeploy-install
+    /tmp/codedeploy-install auto >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: CodeDeploy agent install script failed" | tee -a "$BOOTSTRAP_LOG"
+    rm -f /tmp/codedeploy-install
   fi
-
-  DB_SECRET_RAW=$(aws secretsmanager get-secret-value --secret-id "$RDS_SECRET_ID" --query SecretString --output text --region "$AWS_REGION" 2>>"$BOOTSTRAP_LOG" || true)
-  DATASOURCE_URL=$(aws ssm get-parameter --name "$DATASOURCE_PARAM" --query Parameter.Value --output text --region "$AWS_REGION" 2>>"$BOOTSTRAP_LOG" || true)
-  REDIS_HOST=$(aws ssm get-parameter --name "$REDIS_HOST_PARAM" --query Parameter.Value --output text --region "$AWS_REGION" 2>>"$BOOTSTRAP_LOG" || printf \'\')
-  REDIS_PORT=$(aws ssm get-parameter --name "$REDIS_PORT_PARAM" --query Parameter.Value --output text --region "$AWS_REGION" 2>>"$BOOTSTRAP_LOG" || printf \'\')
-
-  DB_USERNAME=""
-  DB_PASSWORD=""
-  if [ -n "$DB_SECRET_RAW" ]; then
-    DB_USERNAME=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['username'])" "$DB_SECRET_RAW" 2>>"$BOOTSTRAP_LOG" || printf \'\')
-    DB_PASSWORD=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['password'])" "$DB_SECRET_RAW" 2>>"$BOOTSTRAP_LOG" || printf \'\')
-  fi
-
-  if [ -n "$DATASOURCE_URL" ] && [ -n "$DB_USERNAME" ] && [ -n "$DB_PASSWORD" ]; then
-    REDIS_HOST=$${REDIS_HOST:-localhost}
-    REDIS_PORT=$${REDIS_PORT:-6379}
-    MIGRATE_SCRIPT="/tmp/run-flyway-migrate.sh"
-    cat > "$MIGRATE_SCRIPT" <<'EOSCRIPT'
-#!/bin/bash
-set -euo pipefail
-SPRING_DATASOURCE_URL="$1"
-SPRING_DATASOURCE_USERNAME="$2"
-SPRING_DATASOURCE_PASSWORD="$3"
-SPRING_REDIS_HOST="$4"
-SPRING_REDIS_PORT="$5"
-PROJECT_DIR="$6"
-export SPRING_DATASOURCE_URL SPRING_DATASOURCE_USERNAME SPRING_DATASOURCE_PASSWORD SPRING_REDIS_HOST SPRING_REDIS_PORT
-cd "$PROJECT_DIR"
-if [ -x "./mvnw" ]; then
-  ./mvnw -B -DskipTests \
-    "-Dflyway.url=$SPRING_DATASOURCE_URL" \
-    "-Dflyway.user=$SPRING_DATASOURCE_USERNAME" \
-    "-Dflyway.password=$SPRING_DATASOURCE_PASSWORD" \
-    "-Dflyway.baselineOnMigrate=true" \
-    "-Dspring.datasource.url=$SPRING_DATASOURCE_URL" \
-    "-Dspring.datasource.username=$SPRING_DATASOURCE_USERNAME" \
-    "-Dspring.datasource.password=$SPRING_DATASOURCE_PASSWORD" \
-    "-Dspring.data.redis.host=$SPRING_REDIS_HOST" \
-    "-Dspring.data.redis.port=$SPRING_REDIS_PORT" \
-    flyway:migrate
-elif command -v mvn >/dev/null 2>&1; then
-  mvn -B -DskipTests \
-    "-Dflyway.url=$SPRING_DATASOURCE_URL" \
-    "-Dflyway.user=$SPRING_DATASOURCE_USERNAME" \
-    "-Dflyway.password=$SPRING_DATASOURCE_PASSWORD" \
-    "-Dflyway.baselineOnMigrate=true" \
-    "-Dspring.datasource.url=$SPRING_DATASOURCE_URL" \
-    "-Dspring.datasource.username=$SPRING_DATASOURCE_USERNAME" \
-    "-Dspring.datasource.password=$SPRING_DATASOURCE_PASSWORD" \
-    "-Dspring.data.redis.host=$SPRING_REDIS_HOST" \
-    "-Dspring.data.redis.port=$SPRING_REDIS_PORT" \
-    flyway:migrate
-else
-  echo "[$(date -Is)] WARNING: Maven executable not available; skipping flyway migrations" >&2
 fi
-EOSCRIPT
-    chmod +x "$MIGRATE_SCRIPT"
-    DS_ESC=$(printf '%q' "$DATASOURCE_URL")
-    DB_USER_ESC=$(printf '%q' "$DB_USERNAME")
-    DB_PASS_ESC=$(printf '%q' "$DB_PASSWORD")
-    REDIS_HOST_ESC=$(printf '%q' "$REDIS_HOST")
-    REDIS_PORT_ESC=$(printf '%q' "$REDIS_PORT")
-    BACKEND_PATH_ESC=$(printf '%q' "$BACKEND_PATH")
-    su - ec2-user -c "/bin/bash $MIGRATE_SCRIPT $DS_ESC $DB_USER_ESC $DB_PASS_ESC $REDIS_HOST_ESC $REDIS_PORT_ESC $BACKEND_PATH_ESC" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: Flyway migration failed" | tee -a "$BOOTSTRAP_LOG"
-    rm -f "$MIGRATE_SCRIPT"
-  else
-    echo "[$(date -Is)] INFO: skipping Flyway migration; datasource configuration incomplete" | tee -a "$BOOTSTRAP_LOG"
-  fi
-else
-  echo "[$(date -Is)] INFO: backend repository directory not found" | tee -a "$BOOTSTRAP_LOG"
+systemctl enable codedeploy-agent && systemctl restart codedeploy-agent || echo "[$(date -Is)] WARNING: unable to start CodeDeploy agent" | tee -a "$BOOTSTRAP_LOG"
+
+# Prepare application directories and permissions
+mkdir -p "$APP_ROOT" "$LOG_ROOT"
+chown -R "$DEPLOY_USER":"$DEPLOY_USER" "$APP_ROOT" "$LOG_ROOT"
+chmod 775 "$APP_ROOT" "$LOG_ROOT"
+
+touch "$LOG_ROOT/app.log"
+chown "$DEPLOY_USER":"$DEPLOY_USER" "$LOG_ROOT/app.log"
+chmod 664 "$LOG_ROOT/app.log"
+
+if [ ! -f "$ENV_FILE" ]; then
+  cat <<EOF > "$ENV_FILE"
+SPRING_PROFILES_ACTIVE=$${ENVIRONMENT}
+AWS_REGION=$${AWS_REGION}
+JAVA_TOOL_OPTIONS="-XX:+ExitOnOutOfMemoryError"
+EOF
+  chown "$DEPLOY_USER":"$DEPLOY_USER" "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
 fi
+
+if [ ! -f "$SERVICE_FILE" ]; then
+  cat <<'SERVICE' > "$SERVICE_FILE"
+[Unit]
+Description=Umigo CRM Backend Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+EnvironmentFile=-/opt/umigo/backend/.env
+WorkingDirectory=/opt/umigo/backend
+ExecStart=/usr/bin/java -jar /opt/umigo/backend/backend.jar
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+  chmod 644 "$SERVICE_FILE"
+  systemctl daemon-reload
+  systemctl enable umigo-backend.service || echo "[$(date -Is)] WARNING: failed to enable backend service" | tee -a "$BOOTSTRAP_LOG"
+fi
+
+echo "[$(date -Is)] Base bootstrap complete. CodeDeploy pipeline will deliver application artifacts to $APP_ROOT" | tee -a "$BOOTSTRAP_LOG"
 
 echo "[$(date -Is)] Bootstrap completed" | tee -a "$BOOTSTRAP_LOG"
 cat "$BOOTSTRAP_LOG" >> /var/log/cloud-init-output.log || true
 exit 0
-

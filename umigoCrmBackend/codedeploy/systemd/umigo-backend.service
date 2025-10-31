@@ -1,0 +1,19 @@
+[Unit]
+Description=Umigo CRM Backend Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ec2-user
+EnvironmentFile=-/opt/umigo/backend/.env
+WorkingDirectory=/opt/umigo/backend
+ExecStart=/usr/bin/java -jar /opt/umigo/backend/backend.jar
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
