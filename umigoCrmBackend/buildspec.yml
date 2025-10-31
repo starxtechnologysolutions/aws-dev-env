@@ -3,6 +3,7 @@ version: 0.2
 env:
   variables:
     MAVEN_OPTS: -Dmaven.test.failure.ignore=false
+    BACKEND_DIR: umigoCrmBackend
   shell: bash
 
 phases:
@@ -10,20 +11,24 @@ phases:
     runtime-versions:
       java: corretto21
     commands:
+      - cd "$CODEBUILD_SRC_DIR/$BACKEND_DIR"
       - echo "Using Java version:"
       - java -version
       - echo "Restoring Maven dependencies"
       - ./mvnw -B dependency:go-offline || echo "Dependency warmup failed"
   pre_build:
     commands:
+      - cd "$CODEBUILD_SRC_DIR/$BACKEND_DIR"
       - echo "Starting unit tests"
       - ./mvnw -B test
   build:
     commands:
+      - cd "$CODEBUILD_SRC_DIR/$BACKEND_DIR"
       - echo "Packaging application"
       - ./mvnw -B package -DskipTests
   post_build:
     commands:
+      - cd "$CODEBUILD_SRC_DIR/$BACKEND_DIR"
       - echo "Preparing deployment artifacts"
       - chmod +x codedeploy/scripts/*.sh
       - mkdir -p target/artifact
@@ -37,7 +42,7 @@ phases:
 artifacts:
   files:
     - '**/*'
-  base-directory: target/artifact
+  base-directory: umigoCrmBackend/target/artifact
   name: backend-build
   discard-paths: no
 
@@ -45,7 +50,7 @@ reports:
   surefire:
     files:
       - '**/surefire-reports/*.xml'
-    base-directory: target
+    base-directory: umigoCrmBackend/target
     file-format: JUNITXML
 
 cache:
