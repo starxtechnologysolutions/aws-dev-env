@@ -12,6 +12,7 @@ phases:
       java: corretto21
     commands:
       - cd "$CODEBUILD_SRC_DIR/$BACKEND_DIR"
+      - chmod +x mvnw
       - echo "Using Java version:"
       - java -version
       - echo "Restoring Maven dependencies"
