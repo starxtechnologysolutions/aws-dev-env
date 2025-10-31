@@ -13,48 +13,58 @@ systemctl enable amazon-ssm-agent && systemctl restart amazon-ssm-agent || echo 
 usermod -aG docker ec2-user || true
 
 REPO_DIR="/home/ec2-user/umigo"
-BACKEND_REPO="https://github.com/starxtechnologysolutions/Umigo.git"
-SHARED_GITHUB_PARAM="/shared/github/pat-readonly"
-FALLBACK_GITHUB_PARAM="/${env}/github/pat"
+BACKEND_REPO="https://github.com/starxtechnologysolutions/aws-dev-env.git"
+# SHARED_GITHUB_PARAM="/shared/github/pat-readonly"
+# FALLBACK_GITHUB_PARAM="/${env}/github/pat"
 AWS_REGION="${aws_region}"
 RDS_SECRET_ID="${env}/rds/app"
 DATASOURCE_PARAM="/${env}/backend/SPRING_DATASOURCE_URL"
 REDIS_HOST_PARAM="/${env}/backend/SPRING_REDIS_HOST"
 REDIS_PORT_PARAM="/${env}/backend/SPRING_REDIS_PORT"
 
-GITHUB_TOKEN=""
-for PARAM_NAME in "$SHARED_GITHUB_PARAM" "$FALLBACK_GITHUB_PARAM"; do
-  [ -z "$PARAM_NAME" ] && continue
-  if aws ssm get-parameter --name "$PARAM_NAME" --with-decryption --query Parameter.Value --output text --region "$AWS_REGION" >/tmp/github_token 2>>"$BOOTSTRAP_LOG"; then
-    GITHUB_TOKEN=$(cat /tmp/github_token)
-    rm -f /tmp/github_token
-    echo "[$(date -Is)] Retrieved GitHub token from $PARAM_NAME" | tee -a "$BOOTSTRAP_LOG"
-    break
-  else
-    echo "[$(date -Is)] INFO: unable to read GitHub token parameter $PARAM_NAME" | tee -a "$BOOTSTRAP_LOG"
-  fi
-done
+# GITHUB_TOKEN=""
+# for PARAM_NAME in "$SHARED_GITHUB_PARAM" "$FALLBACK_GITHUB_PARAM"; do
+#   [ -z "$PARAM_NAME" ] && continue
+#   if aws ssm get-parameter --name "$PARAM_NAME" --with-decryption --query Parameter.Value --output text --region "$AWS_REGION" >/tmp/github_token 2>>"$BOOTSTRAP_LOG"; then
+#     GITHUB_TOKEN=$(cat /tmp/github_token)
+#     rm -f /tmp/github_token
+#     echo "[$(date -Is)] Retrieved GitHub token from $PARAM_NAME" | tee -a "$BOOTSTRAP_LOG"
+#     break
+  # else
+#     echo "[$(date -Is)] INFO: unable to read GitHub token parameter $PARAM_NAME" | tee -a "$BOOTSTRAP_LOG"
+  # fi
+# done
+#
+# if [ -n "$GITHUB_TOKEN" ]; then
+#   su - ec2-user -c "git config --global credential.helper store" || true
+#   cat <<TOKENEOF > /home/ec2-user/.git-credentials
+# https://$GITHUB_TOKEN:x-oauth-basic@github.com
+# TOKENEOF
+  # chown ec2-user:ec2-user /home/ec2-user/.git-credentials
+  # chmod 600 /home/ec2-user/.git-credentials
+#
+  # if [ ! -d "$REPO_DIR/.git" ]; then
+#     su - ec2-user -c "rm -rf $REPO_DIR"
+#     su - ec2-user -c "git clone $BACKEND_REPO $REPO_DIR" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git clone failed" | tee -a "$BOOTSTRAP_LOG"
+  # else
+#     su - ec2-user -c "git -C $REPO_DIR fetch --all" >> "$BOOTSTRAP_LOG" 2>&1 || true
+#     su - ec2-user -c "git -C $REPO_DIR checkout main" >> "$BOOTSTRAP_LOG" 2>&1 || true
+#     su - ec2-user -c "git -C $REPO_DIR pull --ff-only origin main" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git pull failed" | tee -a "$BOOTSTRAP_LOG"
+  # fi
+#   su - ec2-user -c "git -C $REPO_DIR remote set-url origin $BACKEND_REPO" >> "$BOOTSTRAP_LOG" 2>&1 || true
+# else
+  # echo "[$(date -Is)] INFO: skipping repo clone; missing GitHub access" | tee -a "$BOOTSTRAP_LOG"
+# fi
 
-if [ -n "$GITHUB_TOKEN" ]; then
-  su - ec2-user -c "git config --global credential.helper store" || true
-  cat <<TOKENEOF > /home/ec2-user/.git-credentials
-https://$GITHUB_TOKEN:x-oauth-basic@github.com
-TOKENEOF
-  chown ec2-user:ec2-user /home/ec2-user/.git-credentials
-  chmod 600 /home/ec2-user/.git-credentials
-
-  if [ ! -d "$REPO_DIR/.git" ]; then
-    su - ec2-user -c "rm -rf $REPO_DIR"
-    su - ec2-user -c "git clone $BACKEND_REPO $REPO_DIR" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git clone failed" | tee -a "$BOOTSTRAP_LOG"
-  else
-    su - ec2-user -c "git -C $REPO_DIR fetch --all" >> "$BOOTSTRAP_LOG" 2>&1 || true
-    su - ec2-user -c "git -C $REPO_DIR checkout main" >> "$BOOTSTRAP_LOG" 2>&1 || true
-    su - ec2-user -c "git -C $REPO_DIR pull --ff-only origin main" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git pull failed" | tee -a "$BOOTSTRAP_LOG"
-  fi
-  su - ec2-user -c "git -C $REPO_DIR remote set-url origin $BACKEND_REPO" >> "$BOOTSTRAP_LOG" 2>&1 || true
+if [ ! -d "$REPO_DIR/.git" ]; then
+  su - ec2-user -c "rm -rf $REPO_DIR"
+  su - ec2-user -c "git clone $BACKEND_REPO $REPO_DIR" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git clone failed" | tee -a "$BOOTSTRAP_LOG"
 else
-  echo "[$(date -Is)] INFO: skipping repo clone; missing GitHub access" | tee -a "$BOOTSTRAP_LOG"
+  su - ec2-user -c "git -C $REPO_DIR fetch --all" >> "$BOOTSTRAP_LOG" 2>&1 || true
+  su - ec2-user -c "git -C $REPO_DIR checkout main" >> "$BOOTSTRAP_LOG" 2>&1 || true
+  su - ec2-user -c "git -C $REPO_DIR pull --ff-only origin main" >> "$BOOTSTRAP_LOG" 2>&1 || echo "[$(date -Is)] WARNING: git pull failed" | tee -a "$BOOTSTRAP_LOG"
 fi
+su - ec2-user -c "git -C $REPO_DIR remote set-url origin $BACKEND_REPO" >> "$BOOTSTRAP_LOG" 2>&1 || true
 
 BACKEND_PATH="$REPO_DIR/umigoCrmBackend"
 if [ -d "$BACKEND_PATH" ]; then
@@ -138,9 +148,4 @@ fi
 echo "[$(date -Is)] Bootstrap completed" | tee -a "$BOOTSTRAP_LOG"
 cat "$BOOTSTRAP_LOG" >> /var/log/cloud-init-output.log || true
 exit 0
-
-
-
-
-
 
