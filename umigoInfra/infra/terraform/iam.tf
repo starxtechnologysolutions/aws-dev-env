@@ -160,6 +160,16 @@ resource "aws_iam_role_policy" "codebuild_policy" {
       {
         Effect = "Allow"
         Action = [
+          "codebuild:CreateReportGroup",
+          "codebuild:BatchPutTestCases",
+          "codebuild:BatchPutTestReports",
+          "codebuild:UpdateReport"
+        ]
+        Resource = ["arn:aws:codebuild:${var.aws_region}:${data.aws_caller_identity.current.account_id}:report-group/${var.project}-${var.env}-backend-*"]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "s3:GetBucketLocation",
           "s3:ListBucket"
         ]
@@ -178,7 +188,6 @@ resource "aws_iam_role_policy" "codebuild_policy" {
     ]
   })
 }
-
 resource "aws_iam_role" "codepipeline_service_role" {
   name = "${var.project}-${var.env}-codepipeline-role"
   assume_role_policy = jsonencode({
@@ -191,7 +200,6 @@ resource "aws_iam_role" "codepipeline_service_role" {
   })
   tags = { Env = var.env, Project = "Starter", Owner = "Roy" }
 }
-
 resource "aws_iam_role_policy" "codepipeline_policy" {
   role = aws_iam_role.codepipeline_service_role.id
   policy = jsonencode({

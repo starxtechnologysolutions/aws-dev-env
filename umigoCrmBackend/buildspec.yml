@@ -47,13 +47,6 @@ artifacts:
   name: backend-build
   discard-paths: no
 
-reports:
-  surefire:
-    files:
-      - '**/surefire-reports/*.xml'
-    base-directory: umigoCrmBackend/target
-    file-format: JUNITXML
-
 cache:
   paths:
     - ~/.m2/**/*

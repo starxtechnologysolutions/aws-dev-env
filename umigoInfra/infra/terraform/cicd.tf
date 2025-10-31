@@ -99,10 +99,10 @@ resource "aws_codepipeline" "backend" {
       version          = "1"
       output_artifacts = ["SourceArtifact"]
       configuration = {
-        ConnectionArn        = var.codestar_connection_arn
-        FullRepositoryId     = "${var.github_owner}/${var.github_repo}"
-        BranchName           = var.github_branch
-        DetectChanges        = "true"
+        ConnectionArn    = var.codestar_connection_arn
+        FullRepositoryId = "${var.github_owner}/${var.github_repo}"
+        BranchName       = var.github_branch
+        DetectChanges    = "true"
       }
     }
   }
